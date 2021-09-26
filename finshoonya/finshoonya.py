@@ -58,7 +58,12 @@ class shoonya(object):
           data={str(temp):""}
           resp=self.session.post(self.url+self._root["fund"],headers=self.headers,data=data).json()
           return resp[0]
-
+        
+      def update_header(self,temp:dict):
+          temp.update({"token_id":self.tokenid,"keyid":self.key,"userid":self.username,"clienttype":"C",
+                "usercode":self.usercode,"pan_no":self.pan})
+          return {str(temp):""}
+        
       def orderbook(self):
           temp={"row_1":"","row_2":"","exch":"","seg":"","product":"","status":"","inst":"","symbol":"","str_price":"","place_by":"",
                 "opt_type":"","exp_dt":"","token_id":self.tokenid,"keyid":self.key,"userid":self.username,"clienttype":"C",
@@ -68,10 +73,12 @@ class shoonya(object):
           try:
               if resp["message"]=="Session Invalidate":
                  self.login()
+                 data=self.update_header(temp)
                  resp=self.session.post(self.url+self._root["orderbook"],headers=self.header,data=data).json()
           except:
               pass
           return resp
+        
       def position(self):
           temp={"row_1":"","row_2":"","exch":"","seg":"","product":"","v_mode":"","status":"","Inst":"","symbol":"","str_price":"","place_by":"",
                 "opt_type":"","exp_dt":"","token_id":self.tokenid,"keyid":self.key,"userid":self.username,"clienttype":"C","usercode":self.usercode,"pan_no":self.pan}
@@ -80,6 +87,7 @@ class shoonya(object):
           try:
               if resp["message"]=="Session Invalidate":
                  self.login()
+                 data=self.update_header(temp)
                  resp=self.session.post(self.url+self._root["position"],headers=self.headers,data=data).json()
           except:
               pass
@@ -93,7 +101,9 @@ class shoonya(object):
           try:
               if resp["message"]=="Session Invalidate":
                  self.login()
+                 data=self.update_header(temp)
                  resp=self.session.post(self.url+self._root["tradebook"],headers=self.headers,data=data).json()
+                 return resp
           except:
               pass
           return resp
@@ -128,14 +138,18 @@ class shoonya(object):
                   "sec_id":secid,"inst_type":inst_tp,"exch":exch,"buysell":buysell,"gtdDate":"0000-00-00","mktProtectionFlag":"N","mktProtectionVal":0,
                   "settler":"000000000000","token_id":self.tokenid,"keyid":self.key,"userid":self.username,"clienttype":"C","usercode":self.usercode,"pan_no":self.pan}       
           data={str(temp):""}
-          ord=self.session.post(self.url+self._root["order"],headers=self.headers,data=data).json()
+          order=self.session.post(self.url+self._root["order"],headers=self.headers,data=data).json()
+          #print(order)
+          #print(data)
           try:
-              if ord[0]["message"]=="Session Invalidate":
+              if order["message"]=="Session Invalidate":
                  self.login()
-                 ord=self.session.post(self.url+self._root["order"],headers=self.headers,data=data).json()
+                 data=self.update_header(temp)
+                 order=self.session.post(self.url+self._root["order"],headers=self.headers,data=data).json()
+                 return order
           except:
               pass
-          return ord
+          return order
 
       def order_bo_co(self,price:float,qty:int,secid:int,sl:float=0,bkpft:float=0,buysell:str="B",exch:str="NSE",prdct:str="I",inst_tp:str='OPTIDX'):
           """
@@ -171,14 +185,16 @@ class shoonya(object):
                    "buysell":buysell,"order_validity":"DAY","exch":exch,"sec_id":secid,"fSLTikAbsValue":sl,"mktProtectionFlag":"N","settler":"000000000000",
                    "token_id":self.tokenid,"keyid":self.key,"userid":self.username,"clienttype":"C","usercode":self.usercode,"pan_no":self.pan}
           data={str(temp):""}
-          ord=self.session.post(self.url+self._root["boco"],headers=self.headers,data=data).json()
+          order=self.session.post(self.url+self._root["boco"],headers=self.headers,data=data).json()
           try:
-              if ord[0]["message"]=="Session Invalidate":
+              if order["message"]=="Session Invalidate":
                  self.login()
-                 ord=self.session.post(self.url+self._root["boco"],headers=self.headers,data=data).json()
+                 data=self.update_header(temp)
+                 order=self.session.post(self.url+self._root["boco"],headers=self.headers,data=data).json()
+                 return order
           except:
               pass
-          return ord
+          return order
         
       def getdata(self,secid:str,fdt:int=1,tdt:int=1,exch:str="NSE",seg:str="E"):
           """
