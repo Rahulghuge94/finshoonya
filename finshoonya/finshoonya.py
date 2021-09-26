@@ -87,6 +87,7 @@ class shoonya(object):
           temp={"row_1":"","row_2":"","exch":"","seg":"","product":"","v_mode":"","status":"","Inst":"","symbol":"","str_price":"","place_by":"",
                 "opt_type":"","exp_dt":"","token_id":self.tokenid,"keyid":self.key,"userid":self.username,"clienttype":"C","usercode":self.usercode,"pan_no":self.pan}
           data={str(temp):""}
+          print(data,self.__dict__)
           resp=self.session.post(self.url+self._root["position"],headers=self.headers,data=data).json()
           try:
               if resp["message"]=="Session Invalidate":
@@ -304,26 +305,26 @@ class shoonya(object):
                  if int(i[0])==secid:
                     return True
       def load_cred(self):
-          session=None
+          sessn=None
           data=None
-          if os.path.isfile("session.json"):
-             session=open("session.json","r")
-             data=json.load(session)
+          if os.path.isfile("cred.json"):
+             sessn=open("cred.json","r")
+             data=json.load(sessn)
           else:
              self.login()
           self.email=data["email"]
           self.password=data["password"]
           self.pan=data["pan"]
           self.username=data["username"]
-          self.url=data["url"]
           self.enctoken=data["enctoken"]
           self.cookie=data["cookie"]
           self.key=data["key"]
           self.tokenid=data["tokenid"]
           self.usercode=data["usercode"]
+          self.headers.update({'Authorisation':'Token '+self.enctoken,"Cookie": self.cookie})
           
       def write_cred(self):
-          session=open("session.json","w")
-          dic=self.__dict__
-          dic.pop("session")
-          json.dump(dic,session)
+          sessn=open("cred.json","w")
+          dic={"email":self.email,"password":self.password,"pan":self.pan,"username":self.username,
+               "enctoken":self.enctoken,"cookie":self.cookie,"key":self.key,"tokenid":self.tokenid,"usercode":self.usercode}
+          json.dump(dic,sessn)
