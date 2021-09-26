@@ -1,5 +1,5 @@
 import requests
-import json
+import json,os
 import time,datetime
 import pandas as pd
 #from retry import retry
@@ -17,7 +17,7 @@ class shoonya(object):
                 'Connection':'keep-alive','Content-Type':'application/x-www-form-urlencoded','Host':'shoonya.finvasia.com','Origin':'https://shoonya.finvasia.com',
                 'Referer':'https://shoonya.finvasia.com/','User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:83.0) Gecko/20100101 Firefox/83.0'}
       
-      def __init__(self,email:str,password:str,pan:str):
+      def __init__(self,email:str=None,password:str=None,pan:str=None):
           self.email=email.upper()
           self.password=password
           self.pan=pan.upper()
@@ -44,6 +44,7 @@ class shoonya(object):
           self.tokenid=resp.json()["userdata"]["TOKENID"]
           self.key=resp.json()["key"]
           self.headers.update({'Authorisation':'Token '+self.enctoken,"Cookie": self.cookie})
+          self.write_cred()
           print('Logged In.')
 
       def fund(self):
@@ -54,6 +55,7 @@ class shoonya(object):
            'AMOUNT_UTILIZED': '0.0', 'CLEAR_BALANCE': 54208.47, 'SUM_OF_ALL': '54208.47', 'AVAILABLE_BALANCE': '54208.47', 'SEG': 'A', 'PAY_OUT_AMT': '0.0', 'MTM_COMBINED': 0.0,
            'UNCLEAR_BALANCE': 0.0, 'MTF_AVAILABLE_BALANCE': '54208.47', 'MTF_UTILIZE': '0.0', 'MTF_COLLATERAL': '0.0', 'MF_COLLATERAL': '0.0'}
           """
+          self.load_cred()
           temp={"token_id":self.tokenid,"keyid":self.key,"userid":self.username,"clienttype":"C","usercode":self.usercode,"pan_no":self.pan}
           data={str(temp):""}
           resp=self.session.post(self.url+self._root["fund"],headers=self.headers,data=data).json()
@@ -65,6 +67,7 @@ class shoonya(object):
           return {str(temp):""}
         
       def orderbook(self):
+          self.load_cred()
           temp={"row_1":"","row_2":"","exch":"","seg":"","product":"","status":"","inst":"","symbol":"","str_price":"","place_by":"",
                 "opt_type":"","exp_dt":"","token_id":self.tokenid,"keyid":self.key,"userid":self.username,"clienttype":"C",
                 "usercode":self.usercode,"pan_no":self.pan}
@@ -80,6 +83,7 @@ class shoonya(object):
           return resp
         
       def position(self):
+          self.load_cred()
           temp={"row_1":"","row_2":"","exch":"","seg":"","product":"","v_mode":"","status":"","Inst":"","symbol":"","str_price":"","place_by":"",
                 "opt_type":"","exp_dt":"","token_id":self.tokenid,"keyid":self.key,"userid":self.username,"clienttype":"C","usercode":self.usercode,"pan_no":self.pan}
           data={str(temp):""}
@@ -94,6 +98,7 @@ class shoonya(object):
           return resp
 
       def tradebook(self):
+          self.load_cred()
           temp={"row_1":"","row_2":"","exch":"","seg":"","product":"","status":"","symbol":"","cl_id":"","place_by":"",
                 "str_price":"","token_id":self.tokenid,"keyid":self.key,"userid":self.username,"clienttype":"C","usercode":self.usercode,"pan_no":self.pan}
           data={str(temp):""}
@@ -126,6 +131,7 @@ class shoonya(object):
              to place normal order sl is zero. so bydefault it is zero dont have to touch it.
              enter required parameter only.
           """
+          self.load_cred()
           temp=None
           ordtp="MKT"
           if price==0:
@@ -167,6 +173,7 @@ class shoonya(object):
              
             to place order at market keep price 0.
           """
+          self.load_cred()
           temp=None
           ordtp="MKT"
           if price==0:
@@ -204,6 +211,7 @@ class shoonya(object):
               tdt: to date
               seg: segment "E" for equity and "D" for derivative.
           """
+          self.load_cred()
           headers={'Host': 'shoonyabrd.finvasia.com',"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:83.0) Gecko/20100101 Firefox/83.0",
                   "Accept": "*/*","Accept-Encoding": "utf-8","Accept-Language": "en-USen;q=0.5",
                   "Content-Length": "197","Origin": "https://shoonyabrd.finvasia.com","Connection": "keep-alive",
@@ -295,3 +303,27 @@ class shoonya(object):
              for i in open_pos:
                  if int(i[0])==secid:
                     return True
+      def load_cred(self):
+          session=None
+          data=None
+          if os.path.isfile("session.json"):
+             session=open("session.json","r")
+             data=json.load(session)
+          else:
+             self.login()
+          self.email=data["email"]
+          self.password=data["password"]
+          self.pan=data["pan"]
+          self.username=data["username"]
+          self.url=data["url"]
+          self.enctoken=data["enctoken"]
+          self.cookie=data["cookie"]
+          self.key=data["key"]
+          self.tokenid=data["tokenid"]
+          self.usercode=data["usercode"]
+          
+      def write_cred(self):
+          session=open("session.json","w")
+          dic=self.__dict__
+          dic.pop("session")
+          json.dump(dic,session)
