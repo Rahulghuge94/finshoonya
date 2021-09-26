@@ -7,11 +7,6 @@ from pytz import timezone
 
 tze=timezone('Asia/Kolkata')#timezone to work with cloud instances.
 
-#credential from cred.json file
-cred=open("cred.json","r")
-cred=json.load(cred)
-email,password,pan=cred["email"],cred["password"],cred["pan"]
-
 class shoonya(object):
       _root={"jwt":"/jwt/token","login":"/trade/login",
               "fund":"/trade/getLimits","orderbook":"/trade/getOrderbook",
