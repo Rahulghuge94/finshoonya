@@ -1,2 +1,2 @@
-from . import shoonya
+from .finshoonya import shoonya
 __all__=[shoonya]
