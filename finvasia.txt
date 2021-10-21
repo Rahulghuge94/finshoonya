@@ -1,0 +1,74 @@
+place order
+
+{"qty":1,"price":"MKT","odr_type":"MKT","product_typ":"I","trg_prc":0,"validity":"DAY","disc_qty":0,"amo":false,"sec_id":"3351","inst_type":"EQUITY","exch":"NSE",
+"buysell":"S","gtdDate":"0000-00-00","mktProtectionFlag":"N","mktProtectionVal":0,"settler":"000000000000","token_id":"8fae3e65f683885919c4",
+"keyid":"4c+5W3is90wBQHWEObt+QnVl05NoqtKFdloQLqXLqK0=","userid":"FA27632","clienttype":"C","usercode":"13549","pan_no":"CJEPG1375B"}: 
+
+sl order {"qty":1,"price":825,"odr_type":"LMT","product_typ":"I","trg_prc":825,"validity":"DAY","disc_qty":0,"amo":false,"sec_id":"3351","inst_type":"EQUITY","exch":"NSE","buysell":"B","gtdDate":"0000-00-00","mktProtectionFlag":"N","mktProtectionVal":0,"settler":"000000000000","token_id":"8fae3e65f683885919c4","keyid":"4c+5W3is90wBQHWEObt+QnVl05NoqtKFdloQLqXLqK0=","userid":"FA27632","clienttype":"C","usercode":"13549","pan_no":"CJEPG1375B"}: 
+
+
+orderbook
+
+{
+    "CLIENT_ID": "FA27632",
+    "ORDER_DATE_TIME": "21-Oct-2021 14:15:59",
+    "ORDER_NUMBER": 1941319,
+    "EXCHANGE": "NSE",
+    "BUY_SELL": "Buy",
+    "SEGMENT": "E",
+    "INSTRUMENT": "EQUITY",
+    "SYMBOL": "SUNPHARMA",
+    "PRODUCT": "INTRADAY",
+    "STATUS": "Pending",
+    "QUANTITY": 1,
+    "REMAINING_QUANTITY": 1,
+    "PRICE": "825.00",
+    "TRG_PRICE": 825,
+    "ORDER_TYPE": "SL",
+    "DISCLOSE_QTY": 0,
+    "SERIALNO": 1,
+    "SEM_SECURITY_ID": "3351",
+    "ORDER_VALIDITY": "DAY",
+    "SEM_NSE_REGULAR_LOT": 0,
+    "REM_QTY_TOT_QTY": "1/1",
+    "TAKE_PROFIT_TRAIL_GAP": 0,
+    "ADV_GROUP_REF_NO": 0,
+    "TRADEDQTY": 0,
+    "DQQTYREM": 0,
+    "EXCHORDERNO": "1300000019370713",
+    "REASON_DESCRIPTION": "CONFIRMED",
+    "LEG_NO": "1",
+    "R": 1,
+    "TRADED_PRICE": 0,
+    "PAN_NO": "CJEPG1375B",
+    "PARTICIPANT_TYPE": "B",
+    "MKT_PROTECT_FLG": "N",
+    "MKT_PROTECT_VAL": 0,
+    "SETTLOR": "14846",
+    "GTC_FLG": "N",
+    "ENCASH_FLG": "N",
+    "MKT_TYPE": "NL",
+    "ALGO_ORD_NO": 0,
+    "TRAILING_SL_VALUE": 0,
+    "SL_ABSTICK_VALUE": 0,
+    "PR_ABSTICK_VALUE": 0,
+    "ORDER_OFFON": "0",
+    "CHILD_LEG_UNQ_ID": 0,
+    "STRIKE_PRICE": 0,
+    "EXPIRY_DATE": "21-Oct-2021 ",
+    "OPT_TYPE": "XX",
+    "SM_SERIES": "EQ",
+    "GTDdate": "21-Oct-2021 14:15:59",
+    "SOURCE_FLG": "WEB"
+}
+
+placeorder response
+{
+    "status": "success",
+    "errorcode": "RS-0036",
+    "message": "Order Submitted Successfully. Your Order Ref. No.1941319"
+}
+
+cancel order 
+https://shoonya.finvasia.com/trade/cancelorder
+{"exch":"NSE","serialno":1,"orderno":1941319,"scripname":"SUNPHARMA","buysell":"B","qty_type":"SL","qty":1,"prc":"825.00","trg_prc":825,"disc_qty":0,"productlist":"I","order_typ":"DAY","sec_id":"3351","qty_rem":1,"inst_type":"E","offline_flag":false,"gtdDate":"0000-00-00","settler":"000000000000","token_id":"8fae3e65f683885919c4","keyid":"4c+5W3is90wBQHWEObt+QnVl05NoqtKFdloQLqXLqK0=","userid":"FA27632","clienttype":"C","usercode":"13549","pan_no":"CJEPG1375B"}: 
