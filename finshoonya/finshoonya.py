@@ -11,7 +11,8 @@ class shoonya(object):
       _root={"jwt":"/jwt/token","login":"/trade/login",
               "fund":"/trade/getLimits","orderbook":"/trade/getOrderbook",
               "tradebook":"/trade/getTradebook","position":"/trade/getNetposition",
-              "order":"/trade/placeorder","boco":"/trade/bracketorder"}
+              "order":"/trade/placeorder","boco":"/trade/bracketorder",
+              "cancel_order":"/trade/cancelorder"}
       
       headers={'Accept':'application/json, text/plain, */*','Accept-Encoding':'gzip, deflate, br','Accept-Language':'en-US,en;q=0.5',
                 'Connection':'keep-alive','Content-Type':'application/x-www-form-urlencoded','Host':'shoonya.finvasia.com','Origin':'https://shoonya.finvasia.com',
@@ -328,3 +329,20 @@ class shoonya(object):
           dic={"email":self.email,"password":self.password,"pan":self.pan,"username":self.username,
                "enctoken":self.enctoken,"cookie":self.cookie,"key":self.key,"tokenid":self.tokenid,"usercode":self.usercode}
           json.dump(dic,sessn)
+      def order_detail(self,order_no:int):
+          ordbk=self.orderbook()
+          for i in ordbk:
+              if i["ORDER_NUMBER"]==order_no:
+                 return i
+      def cancel_order(self,order_no):
+          _ord=self.order_detail(order_no)
+          {"exch":_ord["EXCHANGE"],"orderno":order_no,"scripname":_ord["SYMBOL"],"buysell":"B" if _ord["BUY_SELL"]=="Buy" else "S",
+            "qty_type":_ord["ORDER_TYPE"],"qty":_ord["QUANTITY"],"prc":_ord["PRICE"],"trg_prc":_ord["TRG_PRICE"],"disc_qty":0,"productlist":"I",
+            "order_typ":"DAY","sec_id":"3351","qty_rem":1,"inst_type":"E","offline_flag":False,
+           
+          temp={"qty":qty,"price":price,"odr_type":ordtp,"product_typ":prdct,"trg_prc":sl,"validity":"DAY","disc_qty":disc_qty,"amo":False,
+                  "sec_id":secid,"inst_type":inst_tp,"exch":exch,"buysell":buysell,"gtdDate":"0000-00-00",
+                  "settler":"000000000000","token_id":self.tokenid,"keyid":self.key,"userid":self.username,"clienttype":"C","usercode":self.usercode,"pan_no":self.pan}       
+          data={str(temp):""}
+          
+      
