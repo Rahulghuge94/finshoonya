@@ -336,9 +336,9 @@ class shoonya(object):
                  return i
       def cancel_order(self,order_no):
           _ord=self.order_detail(order_no)
-          {"exch":_ord["EXCHANGE"],"orderno":order_no,"scripname":_ord["SYMBOL"],"buysell":"B" if _ord["BUY_SELL"]=="Buy" else "S",
-            "qty_type":_ord["ORDER_TYPE"],"qty":_ord["QUANTITY"],"prc":_ord["PRICE"],"trg_prc":_ord["TRG_PRICE"],"disc_qty":0,"productlist":"I",
-            "order_typ":"DAY","sec_id":"3351","qty_rem":1,"inst_type":"E","offline_flag":False,
+          {"exch":_ord["EXCHANGE"],"orderno":order_no,"scripname":_ord["SYMBOL"],"buysell":_ord["BUY_SELL"][0],
+            "qty_type":_ord["ORDER_TYPE"],"qty":_ord["QUANTITY"],"prc":_ord["PRICE"],"trg_prc":_ord["TRG_PRICE"],"disc_qty":0,"productlist":_ord["PRODUCT"],
+            "order_typ":"DAY","sec_id":_ord["SEM_SECURITY_ID"],"qty_rem":1,"inst_type":_ord["SEGMENT"],"offline_flag":False,
            
           temp={"qty":qty,"price":price,"odr_type":ordtp,"product_typ":prdct,"trg_prc":sl,"validity":"DAY","disc_qty":disc_qty,"amo":False,
                   "sec_id":secid,"inst_type":inst_tp,"exch":exch,"buysell":buysell,"gtdDate":"0000-00-00",
