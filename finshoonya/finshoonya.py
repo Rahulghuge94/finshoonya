@@ -7,12 +7,17 @@ from pytz import timezone
 
 tze=timezone('Asia/Kolkata')#timezone to work with cloud instances.
 
+#credential from cred.json file
+#cred=open("cred.json","r")
+#cred=json.load(cred)
+#email,password,pan=cred["email"],cred["password"],cred["pan"]
+
 class shoonya(object):
       _root={"jwt":"/jwt/token","login":"/trade/login",
               "fund":"/trade/getLimits","orderbook":"/trade/getOrderbook",
               "tradebook":"/trade/getTradebook","position":"/trade/getNetposition",
               "order":"/trade/placeorder","boco":"/trade/bracketorder",
-              "cancel_order":"/trade/cancelorder"}
+              "cancel_order":"/trade/cancelorder","modifyorder":"/trade/modifyOrder"}
       
       headers={'Accept':'application/json, text/plain, */*','Accept-Encoding':'gzip, deflate, br','Accept-Language':'en-US,en;q=0.5',
                 'Connection':'keep-alive','Content-Type':'application/x-www-form-urlencoded','Host':'shoonya.finvasia.com','Origin':'https://shoonya.finvasia.com',
@@ -329,20 +334,51 @@ class shoonya(object):
           dic={"email":self.email,"password":self.password,"pan":self.pan,"username":self.username,
                "enctoken":self.enctoken,"cookie":self.cookie,"key":self.key,"tokenid":self.tokenid,"usercode":self.usercode}
           json.dump(dic,sessn)
+            
       def order_detail(self,order_no:int):
+          """return details for given order no."""
           ordbk=self.orderbook()
           for i in ordbk:
               if i["ORDER_NUMBER"]==order_no:
                  return i
+                
       def cancel_order(self,order_no):
+          """ cancel pending order."""
           _ord=self.order_detail(order_no)
-          {"exch":_ord["EXCHANGE"],"orderno":order_no,"scripname":_ord["SYMBOL"],"buysell":_ord["BUY_SELL"][0],
-            "qty_type":_ord["ORDER_TYPE"],"qty":_ord["QUANTITY"],"prc":_ord["PRICE"],"trg_prc":_ord["TRG_PRICE"],"disc_qty":0,"productlist":_ord["PRODUCT"],
-            "order_typ":"DAY","sec_id":_ord["SEM_SECURITY_ID"],"qty_rem":1,"inst_type":_ord["SEGMENT"],"offline_flag":False,
-           
-          temp={"qty":qty,"price":price,"odr_type":ordtp,"product_typ":prdct,"trg_prc":sl,"validity":"DAY","disc_qty":disc_qty,"amo":False,
-                  "sec_id":secid,"inst_type":inst_tp,"exch":exch,"buysell":buysell,"gtdDate":"0000-00-00",
-                  "settler":"000000000000","token_id":self.tokenid,"keyid":self.key,"userid":self.username,"clienttype":"C","usercode":self.usercode,"pan_no":self.pan}       
+          temp={"exch":_ord["EXCHANGE"],"serialno":_ord['SERIALNO'],"orderno":int(order_no),"scripname":_ord["SYMBOL"],"buysell":_ord["BUY_SELL"][0],
+                "qty_type":_ord["ORDER_TYPE"],"qty":_ord["QUANTITY"],"prc":_ord["PRICE"],"trg_prc":_ord["TRG_PRICE"],"disc_qty":_ord["DISCLOSE_QTY"],
+                "productlist":_ord["PRODUCT"][0],"order_typ":_ord["ORDER_VALIDITY"],"sec_id":_ord["SEM_SECURITY_ID"],"qty_rem":_ord["REMAINING_QUANTITY"],
+                "inst_type":_ord["SEGMENT"],"offline_flag":"O-Pending" == _ord["STATUS"] or "O-Modified" == _ord["STATUS"],"gtdDate":"0000-00-00","settler":"000000000000","token_id":self.tokenid,
+                "keyid":self.key,"userid":self.username,"clienttype":"C","usercode":self.usercode,"pan_no":self.pan}      
           data={str(temp):""}
-          
-      
+          order=self.session.post(self.url+self._root["cancel_order"],headers=self.headers,data=data).json()
+          try:
+              if order["message"]=="Session Invalidate":
+                 self.login()
+                 data=self.update_header(temp)
+                 order=self.session.post(self.url+self._root["cancel_order"],headers=self.headers,data=data).json()
+                 return order
+          except:
+              pass
+          return order
+
+      def modify_order(self,order_no:int,price:float,triggerprice:float=0,isamo=False):
+          """ modify order."""
+          _ord=self.order_detail(order_no)
+          temp={"exch":_ord["EXCHANGE"],"serialno":_ord['SERIALNO'],"orderno":int(order_no),"scripname":_ord["SYMBOL"],"buysell":_ord["BUY_SELL"][0],
+                "qty_type":_ord["ORDER_TYPE"],"qty":_ord["QUANTITY"],"prc":price,"trg_prc":triggerprice,"disc_qty":_ord["DISCLOSE_QTY"],
+                "productlist":_ord["PRODUCT"][0],"order_typ":_ord["ORDER_VALIDITY"],"sec_id":_ord["SEM_SECURITY_ID"],"qty_rem":_ord["REMAINING_QUANTITY"],
+                "inst_type":_ord["SEGMENT"],"amo":isamo,"trd_qty":_ord["TRADEDQTY"],"status":_ord["STATUS"],"gtdDate":"0000-00-00","mktProtectionFlag":"N","mktProtectionVal":0,
+                "settler":"000000000000","token_id":self.tokenid,"keyid":self.key,"userid":self.username,"clienttype":"C","usercode":self.usercode,
+                "pan_no":self.pan}      
+          data={str(temp):""}
+          order=self.session.post(self.url+self._root["modifyorder"],headers=self.headers,data=data).json()
+          try:
+              if order["message"]=="Session Invalidate":
+                 self.login()
+                 data=self.update_header(temp)
+                 order=self.session.post(self.url+self._root["modifyorder"],headers=self.headers,data=data).json()
+                 return order
+          except:
+              pass
+          return order
