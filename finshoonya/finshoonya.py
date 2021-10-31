@@ -120,7 +120,7 @@ class shoonya(object):
               pass
           return resp
 
-      def order(self,price,qty,secid,sl=0,buysell="B",exch="NSE",prdct="I",inst_tp='OPTIDX',disc_qty=0):
+      def order(self,price,qty,secid,sl=0,buysell="B",exch="NSE",prdct="I",inst_tp='OPTIDX',disc_qty=0,amo:bool=False):
           """
           param:
              price: price at which you want to buy.
@@ -147,10 +147,11 @@ class shoonya(object):
              ordtp="LMT"
           elif sl!=0:
               price="MKT"
-          temp={"qty":qty,"price":price,"odr_type":ordtp,"product_typ":prdct,"trg_prc":sl,"validity":"DAY","disc_qty":disc_qty,"amo":False,
+          temp={"qty":qty,"price":price,"odr_type":ordtp,"product_typ":prdct,"trg_prc":sl,"validity":"DAY","disc_qty":disc_qty,"amo":amo,
                   "sec_id":secid,"inst_type":inst_tp,"exch":exch,"buysell":buysell,"gtdDate":"0000-00-00","mktProtectionFlag":"N","mktProtectionVal":0,
                   "settler":"000000000000","token_id":self.tokenid,"keyid":self.key,"userid":self.username,"clienttype":"C","usercode":self.usercode,"pan_no":self.pan}       
           data={str(temp):""}
+          print(data)
           order=self.session.post(self.url+self._root["order"],headers=self.headers,data=data).json()
           #print(order)
           #print(data)
@@ -345,8 +346,9 @@ class shoonya(object):
       def cancel_order(self,order_no):
           """ cancel pending order."""
           _ord=self.order_detail(order_no)
+          ord_tp={"LIMIT":"LMT","MARKET":"MKT"}
           temp={"exch":_ord["EXCHANGE"],"serialno":_ord['SERIALNO'],"orderno":int(order_no),"scripname":_ord["SYMBOL"],"buysell":_ord["BUY_SELL"][0],
-                "qty_type":_ord["ORDER_TYPE"],"qty":_ord["QUANTITY"],"prc":_ord["PRICE"],"trg_prc":_ord["TRG_PRICE"],"disc_qty":_ord["DISCLOSE_QTY"],
+                "qty_type":ord_tp[_ord["ORDER_TYPE"]],"qty":_ord["QUANTITY"],"prc":_ord["PRICE"],"trg_prc":_ord["TRG_PRICE"],"disc_qty":_ord["DISCLOSE_QTY"],
                 "productlist":_ord["PRODUCT"][0],"order_typ":_ord["ORDER_VALIDITY"],"sec_id":_ord["SEM_SECURITY_ID"],"qty_rem":_ord["REMAINING_QUANTITY"],
                 "inst_type":_ord["SEGMENT"],"offline_flag":"O-Pending" == _ord["STATUS"] or "O-Modified" == _ord["STATUS"],"gtdDate":"0000-00-00","settler":"000000000000","token_id":self.tokenid,
                 "keyid":self.key,"userid":self.username,"clienttype":"C","usercode":self.usercode,"pan_no":self.pan}      
@@ -365,12 +367,14 @@ class shoonya(object):
       def modify_order(self,order_no:int,price:float,triggerprice:float=0,isamo=False):
           """ modify order."""
           _ord=self.order_detail(order_no)
+          ord_tp="MKT" if price==0 else "LMT"
+          price="MKT" if price==0 else price
           temp={"exch":_ord["EXCHANGE"],"serialno":_ord['SERIALNO'],"orderno":int(order_no),"scripname":_ord["SYMBOL"],"buysell":_ord["BUY_SELL"][0],
-                "qty_type":_ord["ORDER_TYPE"],"qty":_ord["QUANTITY"],"prc":price,"trg_prc":triggerprice,"disc_qty":_ord["DISCLOSE_QTY"],
+                "qty_type":ord_tp,"qty":_ord["QUANTITY"],"prc":price,"trg_prc":triggerprice,"disc_qty":_ord["DISCLOSE_QTY"],
                 "productlist":_ord["PRODUCT"][0],"order_typ":_ord["ORDER_VALIDITY"],"sec_id":_ord["SEM_SECURITY_ID"],"qty_rem":_ord["REMAINING_QUANTITY"],
-                "inst_type":_ord["SEGMENT"],"amo":isamo,"trd_qty":_ord["TRADEDQTY"],"status":_ord["STATUS"],"gtdDate":"0000-00-00","mktProtectionFlag":"N","mktProtectionVal":0,
+                "inst_type":_ord["INSTRUMENT"],"amo":isamo,"trd_qty":_ord["TRADEDQTY"],"status":_ord["STATUS"],"gtdDate":"0000-00-00","mktProtectionFlag":"N","mktProtectionVal":0,
                 "settler":"000000000000","token_id":self.tokenid,"keyid":self.key,"userid":self.username,"clienttype":"C","usercode":self.usercode,
-                "pan_no":self.pan}      
+                "pan_no":self.pan}
           data={str(temp):""}
           order=self.session.post(self.url+self._root["modifyorder"],headers=self.headers,data=data).json()
           try:
