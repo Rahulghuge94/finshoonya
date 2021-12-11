@@ -6,14 +6,14 @@ with open("README.md", "r") as fh:
 setuptools.setup(
     name = 'finshoonya',
     packages=setuptools.find_packages(),
-    version = '0.1',
+    version = '0.2',
     include_package_data=True,
     description = 'finvasia unofficial Trading api',
     long_description=long_description,
     long_description_content_type="text/markdown",  author = 'Rahul',
     author_email = '1994ghuge.gmail.com',
-    url = 'https://github.com/Rahulghuge94/trade',
-    install_requires=['requests', 'pandas','pytz'],
+    url = 'https://github.com/Rahulghuge94/finshoonya',
+    install_requires=['requests', 'pandas','pytz','websocket-client'],
     keywords = ['Finvasia', 'api', 'python', 'sdk', 'trading', 'stock markets'],
     classifiers=[
       'Intended Audience :: Developers',
