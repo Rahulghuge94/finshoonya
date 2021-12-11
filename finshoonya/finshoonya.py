@@ -1,316 +1,74 @@
 import requests
 import json,os
 import time,datetime
+from time import sleep
 import pandas as pd
+import hashlib
 #from retry import retry
 from pytz import timezone
-
+import websocket
+import threading
 tze=timezone('Asia/Kolkata')#timezone to work with cloud instances.
 
-#credential from cred.json file
-#cred=open("cred.json","r")
-#cred=json.load(cred)
-#email,password,pan=cred["email"],cred["password"],cred["pan"]
-
 class shoonya(object):
-      _root={"jwt":"/jwt/token","login":"/trade/login",
-              "fund":"/trade/getLimits","orderbook":"/trade/getOrderbook",
-              "tradebook":"/trade/getTradebook","position":"/trade/getNetposition",
-              "order":"/trade/placeorder","boco":"/trade/bracketorder",
-              "cancel_order":"/trade/cancelorder","modifyorder":"/trade/modifyOrder"}
       
-      headers={'Accept':'application/json, text/plain, */*','Accept-Encoding':'gzip, deflate, br','Accept-Language':'en-US,en;q=0.5',
-                'Connection':'keep-alive','Content-Type':'application/x-www-form-urlencoded','Host':'shoonya.finvasia.com','Origin':'https://shoonya.finvasia.com',
-                'Referer':'https://shoonya.finvasia.com/','User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:83.0) Gecko/20100101 Firefox/83.0'}
-      
-      def __init__(self,email:str=None,password:str=None,pan:str=None):
-          self.email=email.upper()
-          self.password=password
-          self.pan=pan.upper()
-          self.username=self.email
-          self.url="https://shoonya.finvasia.com"
-          self.enctoken=None
-          self.cookie=None
-          self.key=None
-          self.tokenid=None
-          self.usercode=None
+      _root={"login":"/QuickAuth","fund":"/Limits","position":"/PositionBook","orderbook":"/OrderBook","tradebook":"/TradeBook","holding":"/Holdings","order": '/PlaceOrder',
+            "modifyorder": '/ModifyOrder',"cancelorder": '/CancelOrder',"exitorder": '/ExitSNOOrder',"singleorderhistory": '/SingleOrdHist',"searchscrip": '/SearchScrip',
+            "scripinfo": '/GetSecurityInfo',"getquote": '/GetQuotes',"hist_data":"/TPSeries","option":"/GetOptionChain"}
+
+      def __init__(self,userid:str=None,password:str=None,twofa:str=None,app_key:str=None):
+          self.userid=userid
+          self.password=hashlib.sha256(password.encode('utf-8')).hexdigest() if password else password
+          self.twofa=twofa
+          self.imei="dbbf5adf877739404c9220a28002b5d3"
+          self.app_key=app_key
           self.session=requests.session()
-    
+          self.url="https://shoonya.finvasia.com/NorenWClientWeb"
+          self.wss_url="wss://shoonya.finvasia.com/NorenWS/"
+          self.access_token=None
+          #self.wss=None
+          self.__wss = None
+          self.__wss_connected = False
+          self.__ws_mutex = threading.Lock()
+          self.subscribed=[]
+          self.LTP={}
+        
       def login(self):
-          self.session.get(self.url)
-          temp={"userName":self.email,"pan":self.pan,"role":"admin","pass": self.password}
-          data={str(temp):""}
-          header=self.headers
-          resp=self.session.post(self.url+self._root["jwt"],headers=header,data=data)
-          self.enctoken=resp.text
-          header.update({'Authorisation':'Token '+self.enctoken})
-          resp=self.session.post(self.url+self._root["login"],headers=header,data=data)
-          self.cookie=resp.headers['Set-Cookie'].replace("; Path=/; HttpOnly","")
-          self.usercode=resp.json()["userdata"]['USERID']
-          self.tokenid=resp.json()["userdata"]["TOKENID"]
-          self.key=resp.json()["key"]
-          self.headers.update({'Authorisation':'Token '+self.enctoken,"Cookie": self.cookie})
-          self.write_cred()
-          print('Logged In.')
-
-      def fund(self):
-          """
-           returns funds in account.
-           response structure
-           {'LIMIT_TYPE': 'CAPITAL', 'LIMIT_SOD': '54208.47', 'ADHOC_LIMIT': '0.0', 'RECEIVABLES': 0.0, 'BANK_HOLDING': 0.0, 'COLLATERALS': 0.0, 'REALISED_PROFITS': 0.0,
-           'AMOUNT_UTILIZED': '0.0', 'CLEAR_BALANCE': 54208.47, 'SUM_OF_ALL': '54208.47', 'AVAILABLE_BALANCE': '54208.47', 'SEG': 'A', 'PAY_OUT_AMT': '0.0', 'MTM_COMBINED': 0.0,
-           'UNCLEAR_BALANCE': 0.0, 'MTF_AVAILABLE_BALANCE': '54208.47', 'MTF_UTILIZE': '0.0', 'MTF_COLLATERAL': '0.0', 'MF_COLLATERAL': '0.0'}
-          """
-          self.load_cred()
-          temp={"token_id":self.tokenid,"keyid":self.key,"userid":self.username,"clienttype":"C","usercode":self.usercode,"pan_no":self.pan}
-          data={str(temp):""}
-          resp=self.session.post(self.url+self._root["fund"],headers=self.headers,data=data).json()
-          return resp[0]
-        
-      def update_header(self,temp:dict):
-          temp.update({"token_id":self.tokenid,"keyid":self.key,"userid":self.username,"clienttype":"C",
-                "usercode":self.usercode,"pan_no":self.pan})
-          return {str(temp):""}
-        
-      def orderbook(self):
-          self.load_cred()
-          temp={"row_1":"","row_2":"","exch":"","seg":"","product":"","status":"","inst":"","symbol":"","str_price":"","place_by":"",
-                "opt_type":"","exp_dt":"","token_id":self.tokenid,"keyid":self.key,"userid":self.username,"clienttype":"C",
-                "usercode":self.usercode,"pan_no":self.pan}
-          data={str(temp):""}
-          resp=self.session.post(self.url+self._root["orderbook"],headers=self.headers,data=data).json()
-          try:
-              if resp["message"]=="Session Invalidate":
-                 self.login()
-                 data=self.update_header(temp)
-                 resp=self.session.post(self.url+self._root["orderbook"],headers=self.header,data=data).json()
-          except:
-              pass
-          return resp
-        
-      def position(self):
-          self.load_cred()
-          temp={"row_1":"","row_2":"","exch":"","seg":"","product":"","v_mode":"","status":"","Inst":"","symbol":"","str_price":"","place_by":"",
-                "opt_type":"","exp_dt":"","token_id":self.tokenid,"keyid":self.key,"userid":self.username,"clienttype":"C","usercode":self.usercode,"pan_no":self.pan}
-          data={str(temp):""}
-          print(data,self.__dict__)
-          resp=self.session.post(self.url+self._root["position"],headers=self.headers,data=data).json()
-          try:
-              if resp["message"]=="Session Invalidate":
-                 self.login()
-                 data=self.update_header(temp)
-                 resp=self.session.post(self.url+self._root["position"],headers=self.headers,data=data).json()
-          except:
-              pass
-          return resp
-
-      def tradebook(self):
-          self.load_cred()
-          temp={"row_1":"","row_2":"","exch":"","seg":"","product":"","status":"","symbol":"","cl_id":"","place_by":"",
-                "str_price":"","token_id":self.tokenid,"keyid":self.key,"userid":self.username,"clienttype":"C","usercode":self.usercode,"pan_no":self.pan}
-          data={str(temp):""}
-          resp=self.session.post(self.url+self._root["tradebook"],headers=self.headers,data=data).json()
-          try:
-              if resp["message"]=="Session Invalidate":
-                 self.login()
-                 data=self.update_header(temp)
-                 resp=self.session.post(self.url+self._root["tradebook"],headers=self.headers,data=data).json()
-                 return resp
-          except:
-              pass
-          return resp
-
-      def order(self,price,qty,secid,sl=0,buysell="B",exch="NSE",prdct="I",inst_tp='OPTIDX',disc_qty=0,amo:bool=False):
-          """
-          param:
-             price: price at which you want to buy.
-             qty: quantity
-             sl: stop loss price in case of sl order.
-             secid: security id or scrip id i.e. 3787 for wipro.
-             buysell: "B" for buy and "S" for sell.
-             exch: exchange "NSE","CDS","BSE" or "MCX"
-             prdct: product of your order. "I"(intraday),"C"(cnc),"B"(bracket order),"V"(cover order),"M"(margin) for fno product
-             Note: to take overnight position in derivative use product "M".
-             ordtp: type of order "MKT"(market),"LMT"(limit), for stop loss just pass sl
-             inst_tp: instrument type. 'OPTIDX' for index option,'OPTSTK' for stock option,'EQUITY' for equity,'FUTSTK' for stock future ,'FUTIDX' for index future.
-
-             to place sl-m order just enter sl of your choice.
-             to place normal order sl is zero. so bydefault it is zero dont have to touch it.
-             enter required parameter only.
-          """
-          self.load_cred()
-          temp=None
-          ordtp="MKT"
-          if price==0:
-             price='MKT'
-          elif price!=0:
-             ordtp="LMT"
-          elif sl!=0:
-              price="MKT"
-          temp={"qty":qty,"price":price,"odr_type":ordtp,"product_typ":prdct,"trg_prc":sl,"validity":"DAY","disc_qty":disc_qty,"amo":amo,
-                  "sec_id":secid,"inst_type":inst_tp,"exch":exch,"buysell":buysell,"gtdDate":"0000-00-00","mktProtectionFlag":"N","mktProtectionVal":0,
-                  "settler":"000000000000","token_id":self.tokenid,"keyid":self.key,"userid":self.username,"clienttype":"C","usercode":self.usercode,"pan_no":self.pan}       
-          data={str(temp):""}
-          print(data)
-          order=self.session.post(self.url+self._root["order"],headers=self.headers,data=data).json()
-          #print(order)
-          #print(data)
-          try:
-              if order["message"]=="Session Invalidate":
-                 self.login()
-                 data=self.update_header(temp)
-                 order=self.session.post(self.url+self._root["order"],headers=self.headers,data=data).json()
-                 return order
-          except:
-              pass
-          return order
-
-      def order_bo_co(self,price:float,qty:int,secid:int,sl:float=0,bkpft:float=0,buysell:str="B",exch:str="NSE",prdct:str="I",inst_tp:str='OPTIDX'):
-          """
-          parameter:
-             price: price at which you would like to buy or sell.
-             qty: quantity
-             secid: security id or scrip id i.e. 3787 for wipro.
-             buysell: "B" for buy and "S" for sell.
-             exch: exchange "NSE","CDS","BSE" or "MCX"
-             prdct: product of your order. "I"(intraday),"C",(cnc),"B"(bracket order),"V"(cover order)
-             ordtp: type of order "MKT"(market),"LMT"(limit), for stop loss just pass sl
-             sl: stop loss
-             bkpft: value at which you would like to book profit in case of bracket order.
-             inst_tp: instrument type 'OPTIDX','OPTSTK','EQUITY','FUTSTK','FUTIDX'.
-             
-            to place order at market keep price 0.
-          """
-          self.load_cred()
-          temp=None
-          ordtp="MKT"
-          if price==0:
-             price='MKT'
-             ordtp="MKT"
+          values={"uid":self.userid,"pwd":self.password,"factor2":self.twofa,
+            "apkversion":"1.2.0","imei":self.imei,"vc":"NOREN_WEB",
+            "appkey":self.app_key,"source":"WEB","addldivinf":"Chrome-96.0.4664.45"}
+          data="jData="+json.dumps(values)
+          #print(data,self.url+self._root["login"])
+          res=self.session.post(self.url+self._root["login"],data=data)
+          if res.status_code !=200:
+             print(f"Unable to Login. Reason:{res.text}")
+             return
           else:
-             ordtp="LMT"
-          #bracket order.
-          if bkpft!=0 and sl!=0:
-             temp={"amo":False,"disclosequantity":0,"securityid":secid,"productlist":"B","inst_type":inst_tp,"iNoOfLeg":"3","qty":qty,"price":price,
-                   "odr_type":ordtp,"buysell":buysell,"order_validity":"DAY","exch":exch,"sec_id":secid,"fPBTikAbsValue":bkpft,"fSLTikAbsValue":sl,
-                   "fTrailingSLValue":0,"mktProtectionFlag":"N","trg_prc":0,"settler":"000000000000","token_id":self.tokenid,"keyid":self.key,"userid":self.username,
-                   "clienttype":"C","usercode":self.usercode,"pan_no":self.pan} 
-          if bkpft==0 and sl!=0: 
-             temp={"amo":False,"disclosequantity":0,"securityid":secid,"product_typ":"V","inst_type":inst_tp,"qty":qty,"price":price,"odr_type":ordtp,
-                   "buysell":buysell,"order_validity":"DAY","exch":exch,"sec_id":secid,"fSLTikAbsValue":sl,"mktProtectionFlag":"N","settler":"000000000000",
-                   "token_id":self.tokenid,"keyid":self.key,"userid":self.username,"clienttype":"C","usercode":self.usercode,"pan_no":self.pan}
-          data={str(temp):""}
-          order=self.session.post(self.url+self._root["boco"],headers=self.headers,data=data).json()
-          try:
-              if order["message"]=="Session Invalidate":
-                 self.login()
-                 data=self.update_header(temp)
-                 order=self.session.post(self.url+self._root["boco"],headers=self.headers,data=data).json()
-                 return order
-          except:
-              pass
-          return order
+             res=res.json()
+             self.access_token=res["susertoken"]
+             self.write_cred()
+          print("Logged In.")
+
+      def api_helper(self,url,data=None,req_typ:str="POST"):
+          if data and req_typ=="POST":
+             self.load_cred()
+             data='jData=' + json.dumps(data) + f'&jKey={self.access_token}'
+             res=self.session.post(url,data=data)
+             if res.status_code !=200 and "Session Expired :  Invalid Session Key" in res.text:
+                print(f"Unable to Login. Reason:{res.text}")
+                self.login()
+                return self.session.post(url,data=data)
+             else:
+                res=res.json()
+                return res
+          if not data and req_type=="GET":
+             res=self.session.get(url)
+             if res.status_code !=200 and "Session Expired :  Invalid Session Key" in res.text:
+                print(f"Unable to Login. Reason:{res.text}")
+                return
+             else:
+                return res
         
-      def getdata(self,secid:str,fdt:int=1,tdt:int=1,exch:str="NSE",seg:str="E"):
-          """
-           param:
-              secid:scripcode or security id
-              fdt: from date. required numbe like 2 for 2 days back data.
-              tdt: to date
-              seg: segment "E" for equity and "D" for derivative.
-          """
-          self.load_cred()
-          headers={'Host': 'shoonyabrd.finvasia.com',"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:83.0) Gecko/20100101 Firefox/83.0",
-                  "Accept": "*/*","Accept-Encoding": "utf-8","Accept-Language": "en-USen;q=0.5",
-                  "Content-Length": "197","Origin": "https://shoonyabrd.finvasia.com","Connection": "keep-alive",
-                  "Referer": "https://shoonyabrd.finvasia.com/Charts/chartw.html"}
-          temp={"Exch":exch,"Seg":seg,"ScripId":str(secid),"FromDate":fdt,"ToDate":tdt,"Time":1}
-          data={"Count": 10,"Data": str(temp),"DoCompress": False,
-                "RequestCode": 800,"Reserved": "","Source": "W","UserId": self.username}
-          return pd.DataFrame(self.session.post("https://shoonyabrd.finvasia.com/TickPub/api/Tick/LiveFeed",headers=self.headers,data=data).json())
-        
-      def get_last_candle(self,secid:str,exch:str="N",seg:str="D"):
-          """
-            return last candle of chart.
-            param:
-              seg "D" for derivative "E" for equity
-              exch: exchange "N" for nse ,"B" for bse and "M" for mcx.
-              secid:security id or scripcode
-          """
-          EXCH={"N":1,"B":2,"M":3}
-          SEG={"E":1,"D":2}
-          seg,exch=SEG[seg],EXCH[exch]
-          headers={"Content-Type": "application/json","Connection": "Keep-Alive","Accept": "application/json"}
-          temp={"SecIdxCode":secid,"Exch":exch,"ScripIdLst":[],"Seg":seg}
-          data={"Count": 10,"Data": str(temp),"DoCompress": False,"RequestCode": 129,"Reserved": "","Source": "W","UserId": ""}
-          return self.session.post("https://shoonyabrd.finvasia.com/TickPub/api/Tick/LiveFeed",headers=headers,json=data).json()
-
-      def get_quote(self,secid:str,exch="N",seg="D"):
-          """
-            return QUOTE.
-            param:
-              seg "D" for derivative "E" for equity
-              exch: exchange "N" for nse ,"B" for bse and "M" for mcx.
-              secid:security id or scripcode
-          """
-          EXCH={"N":1,"B":2}
-          SEG={"E":1,"D":2}
-          seg,exch=SEG[seg],EXCH[exch]
-          temp={"Seg": seg, "ScripIdLst": [f"{secid}"], "Exch": exch, "SecIdxCode": "-1"}
-          data={"Count": "50","Data": str(temp),"DoCompress": False,"RequestCode": 131,"Reserved": "", "Source": "W","UserId": "","UserType": "C"}
-          headers={"Content-Type": "application/json","Connection": "Keep-Alive","Accept": "application/json"}
-          return self.session.post("https://shoonyabrd.finvasia.com/DataPub/api/SData/LiveFeed",headers=headers,json=data).json()
-        
-      def timestamp():
-          tmstm=str(datetime.datetime.now(tz=tze).timestamp())
-          tmstm=tmstm.replace(".","")
-          ciqrand=tmstm[:13]
-          return ciqrand
-
-      #not useful.
-      def getwatchlist(self,wname):
-          temp={"wlname":wname,"token_id":self.tokenid,"keyid":self.key,"userid":self.username,"clienttype":"C","usercode":self.usercode,"pan_no":self.pan}
-          data={str(temp):''}
-          return s.post("https://shoonya.finvasia.com/trade/getWatchlistDetail",headers=self.headers,data=data).json()
-
-      #not useful.
-      def addtowatchlist(self,scrip: list,wname: str,seg="D",exch="NSE"):
-          for sc in scrip:
-              data={str({"exch":exch,"secId":sc,"seg":seg,"wlName":wname,"token_id":self.tokenid,"keyid":self.key,"userid":self.username,"clienttype":"C","usercode":self.usercode,"pan_no":self.pan}): ""}
-              self.session.post('https://shoonya.finvasia.com/trade/addWatchlist',headers=self.headers,data=data).json()['status']
-
-      def get_scripcode(self,srchstring:str):
-          """
-            return scripcode.
-          """
-          temp=[]
-          headers={'Host': 'data.rupeetracker.in','User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:87.0) Gecko/20100101 Firefox/87.0','Accept': 'application/json, text/plain, */*',
-                   'Accept-Language': 'en-US,en;q=0.5','Accept-Encoding': 'gzip, deflate, br','Referer': 'https://shoonya.finvasia.com/','Origin': 'https://shoonya.finvasia.com','Connection': 'keep-alive'}
-          resp=self.session.get('https://data.rupeetracker.in/solr/scrip/select?wt=json&indent=true&q=((_Exch_s:xxx AND Seg_s:x)OR(_Exch_s:NSE AND Seg_s:E)OR(_Exch_s:NSE AND Seg_s:D)OR(_Exch_s:NSE AND Seg_s:C)OR(_Exch_s:BSE AND Seg_s:E)OR(_Exch_s:BSE AND Seg_s:C)OR(_Exch_s:MCX AND Inst_s:FUTCOM)OR(_Exch_s:MCX AND Inst_s:OPTCOM)OR(_Exch_s:MCX AND Inst_s:OPTFUT)OR(_Exch_s:NCDEX AND Inst_s:FUTCOM)OR(_Exch_s:NCDEX AND Inst_s:FUTCOM)OR(_Exch_s:NCDEX AND Inst_s:COM))& fq={!lucene q.op=AND df=SearcTerm_s}'+srchstring+'*&rows=150&sort=Inst_s asc,volume_i desc',headers=headers).json()
-          if resp['response']['docs']:
-             temp=[]
-          for i in resp['response']['docs']:
-              temp.append([i['Sid_s'],i['TradeSym_t']])
-          return temp
-
-      def get_open_position(self):
-          pos=[]
-          positions=self.position()
-          if not positions:
-             return pos
-          for i in range(0,len(positions)):
-              if positions[i]['NET_QTY']!=0:
-                 pos.append([positions[i]['SECURITY_ID'],positions[i]['NET_QTY']])
-          return pos
-
-      def is_position_open(self,secid:int):
-          open_pos=self.get_open_position()
-          if not open_pos:
-             return False
-          else:
-             for i in open_pos:
-                 if int(i[0])==secid:
-                    return True
       def load_cred(self):
           sessn=None
           data=None
@@ -319,70 +77,272 @@ class shoonya(object):
              data=json.load(sessn)
           else:
              self.login()
-          self.email=data["email"]
+          self.userid=data["userid"]
           self.password=data["password"]
-          self.pan=data["pan"]
-          self.username=data["username"]
-          self.enctoken=data["enctoken"]
-          self.cookie=data["cookie"]
-          self.key=data["key"]
-          self.tokenid=data["tokenid"]
-          self.usercode=data["usercode"]
-          self.headers.update({'Authorisation':'Token '+self.enctoken,"Cookie": self.cookie})
+          self.twofa=data["twofa"]
+          self.access_token=data["access_token"]
+          self.app_key=data["app_key"]
           
       def write_cred(self):
           sessn=open("cred.json","w")
-          dic={"email":self.email,"password":self.password,"pan":self.pan,"username":self.username,
-               "enctoken":self.enctoken,"cookie":self.cookie,"key":self.key,"tokenid":self.tokenid,"usercode":self.usercode}
+          dic={"userid":self.userid,"password":self.password,"twofa":self.twofa,
+               "access_token":self.access_token,"app_key":self.app_key}
           json.dump(dic,sessn)
-            
-      def order_detail(self,order_no:int):
-          """return details for given order no."""
-          ordbk=self.orderbook()
-          for i in ordbk:
-              if i["ORDER_NUMBER"]==order_no:
-                 return i
-                
-      def cancel_order(self,order_no):
-          """ cancel pending order."""
-          _ord=self.order_detail(order_no)
-          ord_tp={"LIMIT":"LMT","MARKET":"MKT"}
-          temp={"exch":_ord["EXCHANGE"],"serialno":_ord['SERIALNO'],"orderno":int(order_no),"scripname":_ord["SYMBOL"],"buysell":_ord["BUY_SELL"][0],
-                "qty_type":ord_tp[_ord["ORDER_TYPE"]],"qty":_ord["QUANTITY"],"prc":_ord["PRICE"],"trg_prc":_ord["TRG_PRICE"],"disc_qty":_ord["DISCLOSE_QTY"],
-                "productlist":_ord["PRODUCT"][0],"order_typ":_ord["ORDER_VALIDITY"],"sec_id":_ord["SEM_SECURITY_ID"],"qty_rem":_ord["REMAINING_QUANTITY"],
-                "inst_type":_ord["SEGMENT"],"offline_flag":"O-Pending" == _ord["STATUS"] or "O-Modified" == _ord["STATUS"],"gtdDate":"0000-00-00","settler":"000000000000","token_id":self.tokenid,
-                "keyid":self.key,"userid":self.username,"clienttype":"C","usercode":self.usercode,"pan_no":self.pan}      
-          data={str(temp):""}
-          order=self.session.post(self.url+self._root["cancel_order"],headers=self.headers,data=data).json()
-          try:
-              if order["message"]=="Session Invalidate":
-                 self.login()
-                 data=self.update_header(temp)
-                 order=self.session.post(self.url+self._root["cancel_order"],headers=self.headers,data=data).json()
-                 return order
-          except:
-              pass
-          return order
+     
+      def fund(self):
+          url=self.url+self._root["fund"]
+          data={"uid":self.userid,"actid":self.userid}
+          return self.api_helper(url,data=data,req_typ="POST")
+    
+      def orderbook(self):
+          url=self.url+self._root["orderbook"]
+          data={"uid":self.userid}
+          res=self.api_helper(url,data=data,req_typ="POST")
+          return res
+        
+      def position(self):
+          url=self.url+self._root["position"]
+          data={"uid":self.userid,"actid":self.userid}
+          res=self.api_helper(url,data=data,req_typ="POST")
+          return res
+    
+      def tradebook(self):
+          url=self.url+self._root["tradebook"]
+          data={"uid":self.userid,"actid":self.userid}
+          res=self.api_helper(url,data=data,req_typ="POST")
+          return res
+        
+      def holdings(self):
+          url=self.url+self._root["holding"]
+          data={"uid":self.userid,"actid":self.userid}
+          res=self.api_helper(url,data=data,req_typ="POST")
+          if res["stat"]=="Not_Ok":
+             return []
+          else:
+             return res
+      #order status "COMPLETE",REJECTED,"CANCELED" "OPEN" "PENDING"
+      def order(self,price,qty,tradingsymbol,ord_tp,sl=0,buysell="B",exch="NSE",prdct="I",disc_qty=0,amo="NO",trigger_price=None,
+                    retention='DAY', remarks="Orderleg1", bkpft = 0.0, trail_price = 0.0):
+          """
+          place order
+          """
+          data= {"uid": self.userid,"actid":self.userid,"trantype": buysell,"prd": prdct,"exch": exch,
+                 "tsym": tradingsymbol,"qty": str(qty),"dscqty": str(disc_qty),"prctyp": ord_tp,"prc": str(price),
+                "trgprc": str(trigger_price),"ret": retention,"remarks": remarks,"amo": amo,'ordersource':'WEB'}
+          #print(data)
+          url=self.url+self._root["order"]
+          #cover order
+          if prdct=='H':            
+            data["blprc"]= str(sl)
+            #trailing price
+            if trail_price!=0.0:
+                data["trailprc"]=str(trail_price)
+          #bracket order
+          if prdct == 'B':            
+             data["blprc"]=str(sl)
+             data["bpprc"]=str(bkpft)
+             #trailing price
+             if trail_price!= 0.0:
+                data["trailprc"]=str(trail_price)
+          res=self.api_helper(url,data=data,req_typ="POST")
+          if res["stat"]=="Not_Ok":
+             return None
+          else:
+             return res
+        
+      def modify_order(self, orderno, exch, tradingsymbol, qty,
+                    ord_tp, price=0.0, trigger_price=None, sl = 0.0, bkpft = 0.0, trail_price = 0.0):
+          url = self.url+self._root["modifyorder"]
+          data= {"uid":self.userid,"actid":self.userid,"norenordno":orderno,"exch":exch,"tsym":tradingsymbol,"qty":str(qty),"prctyp":ord_tp,"prc":str(price),'ordersource':'WEB'}
 
-      def modify_order(self,order_no:int,price:float,triggerprice:float=0,isamo=False):
-          """ modify order."""
-          _ord=self.order_detail(order_no)
-          ord_tp="MKT" if price==0 else "LMT"
-          price="MKT" if price==0 else price
-          temp={"exch":_ord["EXCHANGE"],"serialno":_ord['SERIALNO'],"orderno":int(order_no),"scripname":_ord["SYMBOL"],"buysell":_ord["BUY_SELL"][0],
-                "qty_type":ord_tp,"qty":_ord["QUANTITY"],"prc":price,"trg_prc":triggerprice,"disc_qty":_ord["DISCLOSE_QTY"],
-                "productlist":_ord["PRODUCT"][0],"order_typ":_ord["ORDER_VALIDITY"],"sec_id":_ord["SEM_SECURITY_ID"],"qty_rem":_ord["REMAINING_QUANTITY"],
-                "inst_type":_ord["INSTRUMENT"],"amo":isamo,"trd_qty":_ord["TRADEDQTY"],"status":_ord["STATUS"],"gtdDate":"0000-00-00","mktProtectionFlag":"N","mktProtectionVal":0,
-                "settler":"000000000000","token_id":self.tokenid,"keyid":self.key,"userid":self.username,"clienttype":"C","usercode":self.usercode,
-                "pan_no":self.pan}
-          data={str(temp):""}
-          order=self.session.post(self.url+self._root["modifyorder"],headers=self.headers,data=data).json()
-          try:
-              if order["message"]=="Session Invalidate":
-                 self.login()
-                 data=self.update_header(temp)
-                 order=self.session.post(self.url+self._root["modifyorder"],headers=self.headers,data=data).json()
-                 return order
-          except:
-              pass
-          return order
+          if (ord_tp == 'SL-LMT') or (ord_tp == 'SL-MKT'):
+             if (trigger_price != None):
+                data["trgprc"] = trigger_price                
+             else:
+                return None
+          #if cover order or high leverage order
+          if product_type == 'H':            
+             data["blprc"]= str(bkpft)
+             #trailing price
+             if trail_price != 0.0:
+                values["trailprc"] = str(trail_price)
+          #bracket order
+          if product_type == 'B':            
+             data["blprc"]= str(sl)
+             data["bpprc"]= str(bkpft)
+             #trailing price
+             if trail_price != 0.0:
+                data["trailprc"] = str(trail_price)
+          res=self.api_helper(url,data=data,req_typ="POST")
+          if res["stat"]=="Not_Ok":
+             return None
+          else:
+             return res
+        
+      def cancel_order(self,order_no:str):
+          url=self.url+self._root["cancelorder"]
+          data={"uid":self.userid,"norenordno":str(order_no),'ordersource':'WEB'}
+          res=self.api_helper(url,data=data,req_typ="POST")
+          return res
+            
+      def order_detail(self,order_no:str):
+          url=self.url+self._root["singleorderhistory"]
+          data={"uid":self.userid,"norenordno":str(order_no),'ordersource':'WEB'}
+          res=self.api_helper(url,data=data,req_typ="POST")
+          return res
+            
+      def getdata(self,secid,fdt,tdt,exch:str="NSE"):
+          #fdt:timestamp tdt:timestamp
+          #symbol format option SYMEXPCorPSTRIKE fut SYMEXPF expiry format ddmmyy equity sym-EQ
+          url="https://shoonyatrade.finvasia.com//NorenWClientWeb/TPSeries"
+          data={"uid":self.userid,"exch":exch,"token":secid,"st":fdt,"et":tdt}
+          res=self.api_helper(url,data=data,req_typ="POST")
+          #print(res)
+          res.sort(key=lambda x:x["ssboe"])
+          res=pd.DataFrame(res)
+          res.drop("stat",axis=1, inplace=True)
+          return res
+            
+      def get_quote(self,secid,exch="NSE"):
+          url=self.url+self._root["getquote"]
+          data={"uid":self.userid,"exch":exch,"token":secid,'ordersource':'WEB'}
+          res=self.api_helper(url,data=data,req_typ="POST")
+          if res["stat"]=="Not_Ok":
+             return None
+          else:
+             return res
+            
+      def get_scripcode(self,searchstring,exch="NSE"):
+          url=self.url+'/SearchScrip'
+          data={"uid":self.userid,"exch":exch,"stext":str(searchstring)}
+          res=self.api_helper(url,data=data,req_typ="POST")
+          if res["stat"]=="Not_Ok":
+             return None
+          else:
+             return res
+      
+      def get_scripinfo(self,token,exch="NSE"):
+          url=self.url+'/GetSecurityInfo'
+          data={"uid":self.userid,"exch":exch,"token":str(token)}
+          res=self.api_helper(url,data=data,req_typ="POST")
+          if res["stat"]=="Not_Ok":
+             return None
+          else:
+             return res
+        
+      def close_all(self):
+          posns=self.position()
+          if not posns:
+             return "No open Positions."
+          for i in posns:
+              if i["netqty"]<0:
+                 ord=self.order(price=0,qty=i["netqty"],tradingsymbol=i["tsym"],ord_tp="MKT",sl=0,buysell="B",exch=i["exch"],prdct=i["prd"])
+                 print(ord)
+          for i in posns:
+              if i["netqty"]>0:
+                 self.order(price=0,qty=i["netqty"],tradingsymbol=i["tsym"],ord_tp="MKT",sl=0,buysell="S",exch=i["exch"],prdct=i["prd"])
+                 print(ord)
+
+      def get_open_position(self):
+          posns=self.position()
+          pos=[]
+          if not posns:
+             return "No open Positions."
+          for i in posns:
+              if i["netqty"]!=0:
+                 pos.append("i")
+          return pos
+
+      def is_position_open(self,tsym):
+          posns=self.position()
+          pos=[]
+          if not posns:
+             return False
+          for i in posns:
+              if i["tsym"]==tsym:
+                 return True
+          return False
+
+      def __ws_run_forever(self):
+          while True:
+              try:
+                  self.__wss.run_forever( ping_interval=3,  ping_payload='{"t":"h"}')
+              except Exception as e:
+                  "Error"
+              sleep(0.1) # Sleep for 100ms between reconnection.
+
+      def __ws_send(self, *args, **kwargs):
+          while self.__wss_connected == False:
+              sleep(0.05)  # sleep for 50ms if websocket is not connected, wait for reconnection
+          with self.__ws_mutex:
+              ret = self.__wss.send(*args, **kwargs)
+          return ret
+
+      def __on_close(self, wsapp, close_status_code, close_msg):
+          self.__wss_connected = False
+          print("ws closed.")
+
+      def __on_open(self, ws=None):
+          print("im in open callback")
+          self.__wss_connected = True
+          values              = { "t": "c" }
+          values["uid"]       = self.userid
+          values["pwd"]       = self.password
+          values["actid"]     = self.userid
+          values["susertoken"]    = self.access_token
+          values["source"]    = 'API'             
+          payload = json.dumps(values)
+          print(payload)
+          self.__ws_send(payload)
+
+      def __on_error(self, ws=None, error=None):
+          print(error)
+
+      def __on_data_callback(self, ws=None, message=None, data_type=None, continue_flag=None):
+          res = json.loads(message)
+          if res["tk"] not in self.LTP:
+             self.LTP.update({str(msg['tk']):msg['lp']})
+
+      def start_websocket(self,data_and_ord_callback=None):        
+          """ Start a websocket connection for getting live data """
+          url=self.wss_url
+          print(url)
+          if not data_and_ord_callback:
+             data_and_ord_callback=self.__on_data_callback
+          self.__wss = websocket.WebSocketApp(url,
+                                                on_data=data_and_ord_callback,
+                                                on_error=self.__on_error,
+                                                on_close=self.__on_close,
+                                                on_open=self.__on_open)
+          self.__ws_thread = threading.Thread(target=self.__ws_run_forever)
+          self.__ws_thread.daemon = True
+          self.__ws_thread.start()
+
+      def subscribe(self, instrument, feed_type="t"): #t:touchline d:
+          values = {"t":feed_type}
+          if type(instrument) == list:
+             values['k'] = '#'.join(instrument)
+          else :
+             values['k'] = instrument
+          data = json.dumps(values)
+          self.__ws_send(data)
+          self.subscribed.append(instrument.split("|")[1])
+
+      def subscribe_orders(self):
+          values = {'t': 'o'}
+          values['actid'] = self.userid        
+          data = json.dumps(values)
+          reportmsg(data)
+          self.__ws_send(data)
+            
+      def get_option_chain(self, exch, tradingsymbol, strikeprice, count=50):
+          """
+          client.get_option_chain("NFO","BANKNIFTY30DEC21","37000",50)
+          """
+          url=self.url+self._root["option"]
+          data={"uid":self.userid,"exch":exch,"tsym":tradingsymbol,"strprc":str(strikeprice),"cnt":str(count)}
+          res=self.api_helper(url,data=data,req_typ="POST")
+          if res["stat"]=="Not_Ok":
+             return res
+          else:
+             return res
