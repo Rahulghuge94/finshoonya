@@ -28,7 +28,7 @@ class shoonya(object):
           self.access_token=None
           #self.wss=None
           self.__wss = None
-          self.__wss_connected = False
+          self.wss_connected = False
           self.__ws_mutex = threading.Lock()
           self.subscribed=[]
           self.LTP={}
@@ -48,7 +48,36 @@ class shoonya(object):
              self.access_token=res["susertoken"]
              self.write_cred()
           print("Logged In.")
+        
+      def log_using_api(self):
+          #Convert to SHA 256 for password and app key
+          self.url="https://shoonyatrade.finvasia.com/NorenWClientTP/"
+          pwd = self.password
+          u_app_key = '{0}|{1}'.format(self.userid, self.app_key)
+          app_key=hashlib.sha256(u_app_key.encode('utf-8')).hexdigest()
+          #prepare the data
+          values              = { "source": "API" , "apkversion": "1.0.0"}
+          values["uid"]       = self.userid
+          values["pwd"]       = self.password
+          values["factor2"]   = self.twofa
+          values["vc"]        = f"{self.userid}_U"
+          values["appkey"]    = app_key        
+          values["imei"]      = "abc1234"       
 
+          payload = 'jData=' + json.dumps(values)
+          res = requests.post(self.url+self._root["login"], data=payload)
+          resDict = json.loads(res.text)
+          print(resDict,payload)
+          if resDict['stat'] != 'Ok':            
+             return None
+          self.access_token=resDict['susertoken']
+          print("Logged In.")
+            
+      def check_if_source_is_api_and_add_source(self,data):
+          if self.url=="https://shoonyatrade.finvasia.com/NorenWClientTP/":
+             data.update({'ordersource':'API'})
+          return data
+    
       def api_helper(self,url,data=None,req_typ:str="POST"):
           if data and req_typ=="POST":
              self.load_cred()
@@ -120,6 +149,7 @@ class shoonya(object):
              return []
           else:
              return res
+            
       #order status "COMPLETE",REJECTED,"CANCELED" "OPEN" "PENDING"
       def order(self,price,qty,tradingsymbol,ord_tp,sl=0,buysell="B",exch="NSE",prdct="I",disc_qty=0,amo="NO",trigger_price=None,
                     retention='DAY', remarks="Orderleg1", bkpft = 0.0, trail_price = 0.0):
@@ -154,7 +184,6 @@ class shoonya(object):
                     ord_tp, price=0.0, trigger_price=None, sl = 0.0, bkpft = 0.0, trail_price = 0.0):
           url = self.url+self._root["modifyorder"]
           data= {"uid":self.userid,"actid":self.userid,"norenordno":orderno,"exch":exch,"tsym":tradingsymbol,"qty":str(qty),"prctyp":ord_tp,"prc":str(price),'ordersource':'WEB'}
-
           if (ord_tp == 'SL-LMT') or (ord_tp == 'SL-MKT'):
              if (trigger_price != None):
                 data["trgprc"] = trigger_price                
@@ -191,15 +220,15 @@ class shoonya(object):
           res=self.api_helper(url,data=data,req_typ="POST")
           return res
             
-      def getdata(self,secid,fdt,tdt,exch:str="NSE"):
-          #fdt:timestamp tdt:timestamp
+      def getdata(self,secid,fdt,tdt,exch:str="NSE",interval="1"):
+          #fdt:timestamp tdt:timestamp,interval possible values 1, 3, 5 , 10, 15, 30, 60, 120, 240
           #symbol format option SYMEXPCorPSTRIKE fut SYMEXPF expiry format ddmmyy equity sym-EQ
           url="https://shoonyatrade.finvasia.com//NorenWClientWeb/TPSeries"
-          data={"uid":self.userid,"exch":exch,"token":secid,"st":fdt,"et":tdt}
+          data={"uid":self.userid,"exch":exch,"token":secid,"st":fdt,"et":tdt,"intrv":interval}
           res=self.api_helper(url,data=data,req_typ="POST")
           #print(res)
           res.sort(key=lambda x:x["ssboe"])
-          res=pd.DataFrame(res)
+          res=pd.DataFrame(res,columns=["stat","Time","ssboe","Open","High","Low","Close","vwap","Volume","OI","Vol","Toi"])
           res.drop("stat",axis=1, inplace=True)
           return res
             
@@ -272,27 +301,27 @@ class shoonya(object):
               sleep(0.1) # Sleep for 100ms between reconnection.
 
       def __ws_send(self, *args, **kwargs):
-          while self.__wss_connected == False:
+          while self.wss_connected == False:
               sleep(0.05)  # sleep for 50ms if websocket is not connected, wait for reconnection
           with self.__ws_mutex:
               ret = self.__wss.send(*args, **kwargs)
           return ret
 
       def __on_close(self, wsapp, close_status_code, close_msg):
-          self.__wss_connected = False
+          self.wss_connected = False
           print("ws closed.")
 
       def __on_open(self, ws=None):
           print("im in open callback")
-          self.__wss_connected = True
+          self.wss_connected = True
           values              = { "t": "c" }
           values["uid"]       = self.userid
           values["pwd"]       = self.password
           values["actid"]     = self.userid
           values["susertoken"]    = self.access_token
-          values["source"]    = 'API'             
+          values["source"]    = 'WEB'             
           payload = json.dumps(values)
-          print(payload)
+          #print(payload)
           self.__ws_send(payload)
 
       def __on_error(self, ws=None, error=None):
