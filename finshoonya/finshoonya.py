@@ -1,4 +1,3 @@
-%%file finshoonya_.py
 import requests
 import json,os
 import time,datetime
