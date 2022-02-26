@@ -1,3 +1,4 @@
+#%%file finshoonya_.py
 import requests
 import json,os
 import time,datetime
@@ -226,9 +227,12 @@ class shoonya(object):
           url="https://shoonyatrade.finvasia.com//NorenWClientWeb/TPSeries"
           data={"uid":self.userid,"exch":exch,"token":secid,"st":fdt,"et":tdt,"intrv":interval}
           res=self.api_helper(url,data=data,req_typ="POST")
-          print(res)
+          #print(res)
           res.sort(key=lambda x:x["ssboe"])
-          res=pd.DataFrame(res,columns=["stat","Time","ssboe","Open","High","Low","Close","vwap","Volume","OI","Vol","Toi"])
+          res=pd.DataFrame(res)
+          res.rename(columns={'into': 'Open','inth': 'High','intl': 'Low','intc': 'Close','intvwap': 'vwap','intv': 'Volume','intoi': 'OI','v': 'TVolume','oi': 'TOI'},inplace=True)
+          cng_typ={"Open":float,"High":float,"Low":float,"Close":float,"Volume":int,"OI":int,"vwap":float,"TVolume":float,"TOI":int}
+          res=res.astype(cng_typ)
           res.drop("stat",axis=1, inplace=True)
           return res
             
