@@ -1,15 +1,15 @@
-#%%file finshoonya_.py
 import requests
 import json,os
 import time,datetime
 from time import sleep
 import pandas as pd
 import hashlib
-#from retry import retry
 from pytz import timezone
 import websocket
 import threading
 tze=timezone('Asia/Kolkata')#timezone to work with cloud instances.
+
+ordsource="WEB"
 
 class shoonya(object):
       
@@ -25,7 +25,7 @@ class shoonya(object):
           self.app_key=app_key
           self.session=requests.session()
           self.url="https://shoonya.finvasia.com/NorenWClientWeb"
-          self.wss_url="wss://shoonya.finvasia.com/NorenWS/"
+          self.wss_url="wss://shoonya.finvasia.com/NorenWSWeb/"
           self.access_token=None
           #self.wss=None
           self.__wss = None
@@ -126,7 +126,7 @@ class shoonya(object):
     
       def orderbook(self):
           url=self.url+self._root["orderbook"]
-          data={"uid":self.userid}
+          data={"uid":self.userid,"ordersource":ordsource}
           res=self.api_helper(url,data=data,req_typ="POST")
           return res
         
@@ -138,7 +138,7 @@ class shoonya(object):
     
       def tradebook(self):
           url=self.url+self._root["tradebook"]
-          data={"uid":self.userid,"actid":self.userid}
+          data={"uid":self.userid,"actid":self.userid,"ordersource":ordsource}
           res=self.api_helper(url,data=data,req_typ="POST")
           return res
         
@@ -159,7 +159,7 @@ class shoonya(object):
           """
           data= {"uid": self.userid,"actid":self.userid,"trantype": buysell,"prd": prdct,"exch": exch,
                  "tsym": tradingsymbol,"qty": str(qty),"dscqty": str(disc_qty),"prctyp": ord_tp,"prc": str(price),
-                "trgprc": str(trigger_price),"ret": retention,"remarks": remarks,"amo": amo,'ordersource':'WEB'}
+                "trgprc": str(trigger_price),"ret": retention,"remarks": remarks,"amo": amo,'ordersource':ordsource}
           #print(data)
           url=self.url+self._root["order"]
           #cover order
@@ -181,13 +181,12 @@ class shoonya(object):
           else:
              return res
         
-      def modify_order(self, orderno, exch, tradingsymbol, qty,
-                    ord_tp, price=0.0, trigger_price=None, sl = 0.0, bkpft = 0.0, trail_price = 0.0):
+      def modify_order(self, orderno, exch, tradingsymbol, qty, ord_tp, price=0.0, trigger_price=None, sl = 0.0, bkpft = 0.0, trail_price = 0.0):
           url = self.url+self._root["modifyorder"]
-          data= {"uid":self.userid,"actid":self.userid,"norenordno":orderno,"exch":exch,"tsym":tradingsymbol,"qty":str(qty),"prctyp":ord_tp,"prc":str(price),'ordersource':'WEB'}
+          data= {"uid":self.userid,"actid":self.userid,"norenordno":orderno,"exch":exch,"tsym":tradingsymbol,"qty":str(qty),"prctyp":ord_tp,"prc":str(price),"ordersource":ordsource}
           if (ord_tp == 'SL-LMT') or (ord_tp == 'SL-MKT'):
              if (trigger_price != None):
-                data["trgprc"] = trigger_price                
+                data["trgprc"] = trigger_price
              else:
                 return None
           #if cover order or high leverage order
@@ -211,19 +210,25 @@ class shoonya(object):
         
       def cancel_order(self,order_no:str):
           url=self.url+self._root["cancelorder"]
-          data={"uid":self.userid,"norenordno":str(order_no),'ordersource':'WEB'}
+          data={"uid":self.userid,"norenordno":str(order_no),"ordersource":ordsource}
           res=self.api_helper(url,data=data,req_typ="POST")
           return res
             
       def order_detail(self,order_no:str):
           url=self.url+self._root["singleorderhistory"]
-          data={"uid":self.userid,"norenordno":str(order_no),'ordersource':'WEB'}
+          data={"uid":self.userid,"norenordno":str(order_no),"ordersource":ordsource}
           res=self.api_helper(url,data=data,req_typ="POST")
           return res
             
-      def getdata(self,secid,fdt,tdt,exch:str="NSE",interval="1"):
-          #fdt:timestamp tdt:timestamp,interval possible values 1, 3, 5 , 10, 15, 30, 60, 120, 240
-          #symbol format option SYMEXPCorPSTRIKE fut SYMEXPF expiry format ddmmyy equity sym-EQ
+      def getdata(self,secid:str, fdt:str, tdt:str, exch:str="NSE", interval="1"):
+          """
+          :param
+            tdt:to date in timestamp i.e.1650864392
+            fdt: from date in timestamp i.e.1650764392
+            secid: security name i.e. TTTAN-EQ, NIFTY31MAR22P36000,BANKNIFTY31MAR22C36000
+            interval possible values 1, 3, 5 , 10, 15, 30, 60, 120, 240
+            #symbol format option SYMEXPCorPSTRIKE fut SYMEXPF expiry format ddmmyy equity sym-EQ
+          """
           url="https://shoonyatrade.finvasia.com//NorenWClientWeb/TPSeries"
           data={"uid":self.userid,"exch":exch,"token":secid,"st":fdt,"et":tdt,"intrv":interval}
           res=self.api_helper(url,data=data,req_typ="POST")
@@ -238,7 +243,7 @@ class shoonya(object):
             
       def get_quote(self,secid,exch="NSE"):
           url=self.url+self._root["getquote"]
-          data={"uid":self.userid,"exch":exch,"token":secid,'ordersource':'WEB'}
+          data={"uid":self.userid,"exch":exch,"token":secid}
           res=self.api_helper(url,data=data,req_typ="POST")
           if res["stat"]=="Not_Ok":
              return None
@@ -313,17 +318,17 @@ class shoonya(object):
 
       def __on_close(self, wsapp, close_status_code, close_msg):
           self.wss_connected = False
-          print("ws closed.",close_msg)
+          print("WEBSOCKET closed.",close_msg)
 
       def __on_open(self, ws=None):
-          print("im in open callback")
+          print("Im in open callback.")
           self.wss_connected = True
           values              = { "t": "c" }
           values["uid"]       = self.userid
           values["pwd"]       = self.password
           values["actid"]     = self.userid
           values["susertoken"]    = self.access_token
-          values["source"]    = 'WEB'             
+          values["source"]    = ordsource             
           payload = json.dumps(values)
           #print(payload)
           self.__ws_send(payload)
@@ -339,7 +344,7 @@ class shoonya(object):
       def start_websocket(self,data_and_ord_callback=None):        
           """ Start a websocket connection for getting live data """
           url=self.wss_url
-          print(url)
+          #print(url)
           if not data_and_ord_callback:
              data_and_ord_callback=self.__on_data_callback
           self.__wss = websocket.WebSocketApp(url,
