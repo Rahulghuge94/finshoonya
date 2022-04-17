@@ -9,7 +9,6 @@ import websocket
 import threading
 tze=timezone('Asia/Kolkata')#timezone to work with cloud instances.
 
-ordsource="WEB"
 
 class shoonya(object):
       
@@ -17,7 +16,7 @@ class shoonya(object):
             "modifyorder": '/ModifyOrder',"cancelorder": '/CancelOrder',"exitorder": '/ExitSNOOrder',"singleorderhistory": '/SingleOrdHist',"searchscrip": '/SearchScrip',
             "scripinfo": '/GetSecurityInfo',"getquote": '/GetQuotes',"hist_data":"/TPSeries","option":"/GetOptionChain"}
 
-      def __init__(self,userid:str=None,password:str=None,twofa:str=None,app_key:str=None):
+      def __init__(self,userid:str=None,password:str=None,twofa:str=None,app_key:str=None,source="WEB"):
           self.userid=userid
           self.password=hashlib.sha256(password.encode('utf-8')).hexdigest() if password else password
           self.twofa=twofa
@@ -33,7 +32,8 @@ class shoonya(object):
           self.__ws_mutex = threading.Lock()
           self.subscribed=[]
           self.LTP={}
-        
+          self.ordsource=source
+
       def login(self):
           values={"uid":self.userid,"pwd":self.password,"factor2":self.twofa,
             "apkversion":"1.2.0","imei":self.imei,"vc":"NOREN_WEB",
@@ -62,8 +62,8 @@ class shoonya(object):
           values["pwd"]       = self.password
           values["factor2"]   = self.twofa
           values["vc"]        = f"{self.userid}_U"
-          values["appkey"]    = app_key        
-          values["imei"]      = "abc1234"       
+          values["appkey"]    = app_key
+          values["imei"]      = "abc1234"
 
           payload = 'jData=' + json.dumps(values)
           res = requests.post(self.url+self._root["login"], data=payload)
@@ -126,7 +126,7 @@ class shoonya(object):
     
       def orderbook(self):
           url=self.url+self._root["orderbook"]
-          data={"uid":self.userid,"ordersource":ordsource}
+          data={"uid":self.userid,"ordersource":self.ordsource}
           res=self.api_helper(url,data=data,req_typ="POST")
           return res
         
@@ -138,7 +138,7 @@ class shoonya(object):
     
       def tradebook(self):
           url=self.url+self._root["tradebook"]
-          data={"uid":self.userid,"actid":self.userid,"ordersource":ordsource}
+          data={"uid":self.userid,"actid":self.userid,"ordersource":self.ordsource}
           res=self.api_helper(url,data=data,req_typ="POST")
           return res
         
@@ -159,7 +159,7 @@ class shoonya(object):
           """
           data= {"uid": self.userid,"actid":self.userid,"trantype": buysell,"prd": prdct,"exch": exch,
                  "tsym": tradingsymbol,"qty": str(qty),"dscqty": str(disc_qty),"prctyp": ord_tp,"prc": str(price),
-                "trgprc": str(trigger_price),"ret": retention,"remarks": remarks,"amo": amo,'ordersource':ordsource}
+                "trgprc": str(trigger_price),"ret": retention,"remarks": remarks,"amo": amo,'ordersource':self.ordsource}
           #print(data)
           url=self.url+self._root["order"]
           #cover order
@@ -183,7 +183,7 @@ class shoonya(object):
         
       def modify_order(self, orderno, exch, tradingsymbol, qty, ord_tp, price=0.0, trigger_price=None, sl = 0.0, bkpft = 0.0, trail_price = 0.0):
           url = self.url+self._root["modifyorder"]
-          data= {"uid":self.userid,"actid":self.userid,"norenordno":orderno,"exch":exch,"tsym":tradingsymbol,"qty":str(qty),"prctyp":ord_tp,"prc":str(price),"ordersource":ordsource}
+          data= {"uid":self.userid,"actid":self.userid,"norenordno":orderno,"exch":exch,"tsym":tradingsymbol,"qty":str(qty),"prctyp":ord_tp,"prc":str(price),"ordersource":self.ordsource}
           if (ord_tp == 'SL-LMT') or (ord_tp == 'SL-MKT'):
              if (trigger_price != None):
                 data["trgprc"] = trigger_price
@@ -210,13 +210,13 @@ class shoonya(object):
         
       def cancel_order(self,order_no:str):
           url=self.url+self._root["cancelorder"]
-          data={"uid":self.userid,"norenordno":str(order_no),"ordersource":ordsource}
+          data={"uid":self.userid,"norenordno":str(order_no),"ordersource":self.ordsource}
           res=self.api_helper(url,data=data,req_typ="POST")
           return res
             
       def order_detail(self,order_no:str):
           url=self.url+self._root["singleorderhistory"]
-          data={"uid":self.userid,"norenordno":str(order_no),"ordersource":ordsource}
+          data={"uid":self.userid,"norenordno":str(order_no),"ordersource":self.ordsource}
           res=self.api_helper(url,data=data,req_typ="POST")
           return res
             
@@ -328,7 +328,7 @@ class shoonya(object):
           values["pwd"]       = self.password
           values["actid"]     = self.userid
           values["susertoken"]    = self.access_token
-          values["source"]    = ordsource             
+          values["source"]    = self.ordsource             
           payload = json.dumps(values)
           #print(payload)
           self.__ws_send(payload)
