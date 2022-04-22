@@ -86,7 +86,11 @@ class shoonya(object):
              res=self.session.post(url,data=data)
              if res.status_code !=200 and "Session Expired :  Invalid Session Key" in res.text:
                 print(f"Unable to Login. Reason:{res.text}")
-                self.login()
+                if self.ordsource=="WEB":
+                    self.login()
+                else:
+                    self.log_using_api()
+                    self.write_cred()
                 return self.session.post(url,data=data)
              else:
                 res=res.json()
