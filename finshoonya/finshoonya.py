@@ -52,7 +52,7 @@ class shoonya(object):
         
       def log_using_api(self):
           #Convert to SHA 256 for password and app key
-          self.url="https://shoonyatrade.finvasia.com/NorenWClientTP/"
+          self.url = "https://shoonyatrade.finvasia.com/NorenWClientTP/"
           pwd = self.password
           u_app_key = '{0}|{1}'.format(self.userid, self.app_key)
           app_key=hashlib.sha256(u_app_key.encode('utf-8')).hexdigest()
@@ -67,6 +67,7 @@ class shoonya(object):
 
           payload = 'jData=' + json.dumps(values)
           res = requests.post(self.url+self._root["login"], data=payload)
+          #print(res)
           resDict = json.loads(res.text)
           print(resDict,payload)
           if resDict['stat'] != 'Ok':            
