@@ -1,3 +1,7 @@
+"""
+@auther:Rahul Ghuge
+unofficial api to trade with finvasia.
+"""
 import requests
 import json,os
 import time,datetime
@@ -108,7 +112,7 @@ class shoonya(object):
           sessn = None
           data = None
           if os.path.isfile("cred.json"):
-             sessn = open("cred.json","r")
+             sessn = open("cred.json", "r")
              data = json.load(sessn)
           else:
              self.login()
@@ -131,7 +135,7 @@ class shoonya(object):
     
       def orderbook(self):
           url = self.url + self._root["orderbook"]
-          data = {"uid":self.userid,"ordersource":self.ordsource}
+          data = {"uid": self.userid,"ordersource": self.ordsource}
           res = self.api_helper(url, data = data, req_typ = "POST")
           return res
         
@@ -243,7 +247,7 @@ class shoonya(object):
           res = pd.DataFrame(res)
           res.rename(columns = {'into': 'Open','inth': 'High','intl': 'Low','intc': 'Close','intvwap': 'vwap','intv': 'Volume','intoi': 'OI',
                                 'v': 'TVolume','oi': 'TOI'}, inplace = True)
-          cng_typ = {"Open": float, "High": float, "Low": float, "Close": float, "Volume":i nt, "OI": int, "vwap": float, "TVolume": float, "TOI": int}
+          cng_typ = {"Open": float, "High": float, "Low": float, "Close": float, "Volume": int, "OI": int, "vwap": float, "TVolume": float, "TOI": int}
           res = res.astype(cng_typ)
           res.drop("stat", axis = 1, inplace = True)
           return res
@@ -346,7 +350,7 @@ class shoonya(object):
       def __on_data_callback(self, ws=None, message=None, data_type=None, continue_flag=None):
           res = json.loads(message)
           if res["tk"] not in self.LTP:
-             self.LTP.update({str(msg['tk']):msg['lp']})
+             self.LTP.update({str(msg['tk']): msg['lp']})
 
       def start_websocket(self,data_and_ord_callback=None):        
           """ Start a websocket connection for getting live data """
