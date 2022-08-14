@@ -77,6 +77,7 @@ class shoonya(object):
           if resDict['stat'] != 'Ok':            
              return None
           self.access_token = resDict['susertoken']
+          self.write_cred()
           print("Logged In.")
             
       def check_if_source_is_api_and_add_source(self, data):
