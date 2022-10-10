@@ -20,7 +20,7 @@ class shoonya(object):
              "order": '/PlaceOrder', "modifyorder": '/ModifyOrder', "cancelorder": '/CancelOrder', "exitorder": '/ExitSNOOrder', "singleorderhistory": '/SingleOrdHist',
              "searchscrip": '/SearchScrip', "scripinfo": '/GetSecurityInfo', "getquote": '/GetQuotes', "hist_data": "/TPSeries", "option": "/GetOptionChain"}
 
-      def __init__(self, userid: str = None, password: str = None, twofa: str = None, app_key: str = None, source = "WEB"):
+      def __init__(self, userid: str=None, password: str=None, twofa: str=None, app_key: str=None, source="WEB"):
           self.userid = userid
           self.password = hashlib.sha256(password.encode('utf-8')).hexdigest() if password else password
           self.twofa = twofa
@@ -85,7 +85,7 @@ class shoonya(object):
              data.update({'ordersource':'API'})
           return data
     
-      def api_helper(self, url, data = None, req_typ: str = "POST"):
+      def api_helper(self, url, data=None, req_typ: str="POST"):
           if data and req_typ == "POST":
              self.load_cred()
              data = 'jData=' + json.dumps(data) + f'&jKey={self.access_token}'
@@ -101,7 +101,7 @@ class shoonya(object):
              else:
                 res = res.json()
                 return res
-          if not data and req_type == "GET":
+          if not data and req_typ == "GET":
              res = self.session.get(url)
              if res.status_code != 200 and "Session Expired :  Invalid Session Key" in res.text:
                 print(f"Unable to Login. Reason:{res.text}")
@@ -149,7 +149,7 @@ class shoonya(object):
       def tradebook(self):
           url = self.url + self._root["tradebook"]
           data = {"uid": self.userid, "actid": self.userid, "ordersource": self.ordsource}
-          res = self.api_helper(url, data = data, req_typ = "POST")
+          res = self.api_helper(url, data=data, req_typ="POST")
           return res
         
       def holdings(self):
@@ -191,7 +191,7 @@ class shoonya(object):
           else:
              return res
         
-      def modify_order(self, orderno, exch, tradingsymbol, qty, ord_tp, price = 0.0, trigger_price = None, sl = 0.0, bkpft = 0.0, trail_price = 0.0):
+      def modify_order(self, orderno, exch, tradingsymbol, qty, ord_tp, product_type=None, price=0.0, trigger_price=None, sl=0.0, bkpft=0.0, trail_price=0.0):
           url = self.url + self._root["modifyorder"]
           data = {"uid": self.userid, "actid": self.userid, "norenordno": orderno, "exch": exch, "tsym": tradingsymbol, "qty": str(qty), "prctyp": ord_tp, 
                  "prc": str(price), "ordersource": self.ordsource}
@@ -205,7 +205,7 @@ class shoonya(object):
              data["blprc"] = str(bkpft)
              #trailing price
              if trail_price != 0.0:
-                values["trailprc"] = str(trail_price)
+                data["trailprc"] = str(trail_price)
           #bracket order
           if product_type == 'B':            
              data["blprc"] = str(sl)
@@ -253,7 +253,7 @@ class shoonya(object):
           res.drop("stat", axis = 1, inplace = True)
           return res
             
-      def get_quote(self, secid, exch = "NSE"):
+      def get_quote(self, secid, exch="NSE"):
           url = self.url+self._root["getquote"]
           data = {"uid": self.userid, "exch": exch, "token": secid}
           res = self.api_helper(url, data = data, req_typ = "POST")
@@ -262,7 +262,7 @@ class shoonya(object):
           else:
              return res
             
-      def get_scripcode(self, searchstring, exch = "NSE"):
+      def get_scripcode(self, searchstring, exch="NSE"):
           url = self.url + '/SearchScrip'
           data = {"uid": self.userid, "exch": exch, "stext": str(searchstring)}
           res = self.api_helper(url, data = data, req_typ = "POST")
@@ -271,7 +271,7 @@ class shoonya(object):
           else:
              return res
       
-      def get_scripinfo(self, token, exch = "NSE"):
+      def get_scripinfo(self, token, exch="NSE"):
           url = self.url+'/GetSecurityInfo'
           data = {"uid": self.userid, "exch": exch, "token": str(token)}
           res = self.api_helper(url, data = data, req_typ = "POST")
@@ -316,7 +316,7 @@ class shoonya(object):
       def __ws_run_forever(self):
           while True:
               try:
-                  self.__wss.run_forever( ping_interval = 3,  ping_payload = '{"t": "h"}')
+                  self.__wss.run_forever(ping_interval=3,  ping_payload='{"t": "h"}')
               except Exception as e:
                   "Error"
               sleep(0.1) # Sleep for 100ms between reconnection.
@@ -332,7 +332,7 @@ class shoonya(object):
           self.wss_connected = False
           print("WEBSOCKET closed.", close_msg)
 
-      def __on_open(self, ws = None):
+      def __on_open(self, ws=None):
           print("Im in open callback.")
           self.wss_connected = True
           values = { "t": "c" }
@@ -345,12 +345,12 @@ class shoonya(object):
           #print(payload)
           self.__ws_send(payload)
 
-      def __on_error(self, ws = None, error = None):
+      def __on_error(self, ws=None, error=None):
           print(error)
 
       def __on_data_callback(self, ws=None, message=None, data_type=None, continue_flag=None):
-          res = json.loads(message)
-          if res["tk"] not in self.LTP:
+          msg = json.loads(message)
+          if msg["tk"] not in self.LTP:
              self.LTP.update({str(msg['tk']): msg['lp']})
 
       def start_websocket(self,data_and_ord_callback=None):        
@@ -368,7 +368,7 @@ class shoonya(object):
           self.__ws_thread.daemon = True
           self.__ws_thread.start()
 
-      def subscribe(self, instrument, feed_type = "t"): #t:touchline d:
+      def subscribe(self, instrument, feed_type="t"): #t:touchline d:
           values = {"t": feed_type}
           if type(instrument) == list:
              values['k'] = '#'.join(instrument)
@@ -382,10 +382,9 @@ class shoonya(object):
           values = {'t': 'o'}
           values['actid'] = self.userid        
           data = json.dumps(values)
-          reportmsg(data)
           self.__ws_send(data)
             
-      def get_option_chain(self, exch, tradingsymbol, strikeprice, count = 50):
+      def get_option_chain(self, exch, tradingsymbol, strikeprice, count=50):
           """
           client.get_option_chain("NFO","BANKNIFTY30DEC21","37000",50)
           """
