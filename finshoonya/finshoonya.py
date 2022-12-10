@@ -27,8 +27,8 @@ class shoonya(object):
           self.imei = "dbbf5adf877739404c9220a28002b5d3"
           self.app_key = app_key
           self.session = requests.session()
-          self.url = "https://shoonya.finvasia.com/NorenWClientWeb"
-          self.wss_url = "wss://shoonya.finvasia.com/NorenWSWeb/"
+          self.url = "https://trade.shoonya.com/NorenWClientWeb"
+          self.wss_url = "wss://trade.shoonya.com/NorenWSWeb/"
           self.access_token = None
           #self.wss = None
           self.__wss = None
@@ -56,7 +56,7 @@ class shoonya(object):
         
       def log_using_api(self):
           #Convert to SHA 256 for password and app key
-          self.url = "https://shoonyatrade.finvasia.com/NorenWClientTP/"
+          self.url = "https://api.shoonya.com/NorenWClientTP/"
           pwd = self.password
           u_app_key = '{0}|{1}'.format(self.userid, self.app_key)
           app_key = hashlib.sha256(u_app_key.encode('utf-8')).hexdigest()
@@ -81,7 +81,7 @@ class shoonya(object):
           print("Logged In.")
             
       def check_if_source_is_api_and_add_source(self, data):
-          if self.url == "https://shoonyatrade.finvasia.com/NorenWClientTP/":
+          if self.url == "https://api.shoonya.com/NorenWClientTP/":
              data.update({'ordersource':'API'})
           return data
     
